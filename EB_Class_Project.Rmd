@@ -1,0 +1,142 @@
+---
+title: "Coursera Prediction Assignment (predmachlearn-013)"
+author: "E. Bradley"
+date: "April 25, 2015"
+output: html_document
+---
+
+
+## EXECUTIVE SUMMARY
+In this report, we analyzed the Weight Lifting Exercise (WLE) Dataset from Groupware@LES (http://groupware.les.inf.puc-rio.br/har). This dataset includes measurements from four accelerometers (on the arm, forearm, belt, and dumbbell) for six participants as they performed one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl with five different variations: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). The objective for this research is to predict the quality (class) for a weight-lifting exercise based solely on accelerometer measurements. In this project, we utilized a Random Forest model on 48 variables. This model correctly predicted the 20 outcomes from the test set and had a 99% out-of-sample accuracy (trained on 75% of original training set and tested on the remaining 25%).
+
+WLE Dataset Paper: http://groupware.les.inf.puc-rio.br/har#wle_paper_section#ixzz3YRYzrXJv
+
+Dataset citation:  
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+
+```{r loading, echo=FALSE, message=FALSE, warning=FALSE,results='hide'}
+install.packages("kable",repos="http://cran.rstudio.com/")
+install.packages("GGally",repos="http://cran.rstudio.com/")
+install.packages("stargazer",repos="http://cran.rstudio.com/")
+install.packages("randomForest",repos="http://cran.rstudio.com/")
+library(randomForest)
+library(knitr)
+library(stargazer)
+require(GGally)
+install.packages("rattle",repos="http://cran.rstudio.com/")
+library(rattle)
+install.packages("rpart.plot",repos="http://cran.rstudio.com/")
+library(rpart.plot)
+install.packages("caret",repos="http://cran.rstudio.com/")
+library(caret)
+install.packages("doMC",repos="http://cran.rstudio.com/")
+library(doMC)
+install.packages("corrplot",repos="http://cran.rstudio.com/")
+library(corrplot)
+doMC::registerDoMC(cores=4)
+```
+
+
+## ANALYSIS
+### Exploratory Analysis & Preprocessing
+In this dataset, there were 19622 observations and 160 variables. We excluded aggregate variables, given that in our test set we were only provided with timestamp not time window summary observations. These variables were identified
+by searching for columns which were predominantly NA's or "" (specifically which had these values for 19216 of the 19622 observations and only had valid data for 406 observations where it was a "new_window"). Examples of these aggregate variables were "kurtosis_roll_arm" and "max_roll_dumbbell". We also excluded the first seven columns, which were metadata for the observations (index, participant name, timestamps, and time window designations) as these should not inform a general predictive model. Lastly, we excluded four variables due to their high correlation (absolute value better than 0.95) with other variables. The correlation matrix for the data preceding this step is shown in **Fig. 1** for the first 15 variables.  
+
+
+```{r getdata, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Correlation Matrix for Subset of Variables"}
+# Training data
+url<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+temporaryFile <- tempfile()
+download.file(url,destfile=temporaryFile, method="curl")
+train<-read.csv(temporaryFile)
+
+# Testing data
+url<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+temporaryFile <- tempfile()
+download.file(url,destfile=temporaryFile, method="curl")
+test<-read.csv(temporaryFile)
+
+# Find columns to exclude
+naCt<-colSums(is.na(train))
+emptyCt<-apply(train, 2, function(x) length(which(x=="")))
+colIndx<-which(naCt<19000 & emptyCt<19000)
+colIndx<-colIndx[-c(1:7)]
+training<-train[,colIndx]
+testing<-test[,colIndx]
+
+# Look at correlation for subset
+M<-cor(training[,-53])
+corrplot(M[1:15,1:15],method="circle")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+# Exclude columns with abs correl. >0.95
+a<-which(abs(M)>0.95, arr.ind=TRUE)
+b<-data.frame(a)
+q<-which(b$row==b$col)
+colIndxCor<-c(4,8,10,33)
+training<-training[,-colIndxCor]
+testing<-testing[,-colIndxCor]
+```
+
+To further explore the data, we also plotted some of the different variables colored by the classe variable (outcome). As shown here, there is some variation
+apparent for the roll belt variable and the outcome (particularly for extremes for D and E).
+```{r explot, echo=FALSE}
+qplot(c(1:19622),training$roll_belt,colour=training$classe, geom="point",xlab="index",ylab="Roll Belt", main="WLE data for Roll Belt by Training Class")
+```
+
+### Model Selection
+We first implemented a simple decision tree to get a sense of the data and then implemented a Random Forest model, given that it is one of the most accurate and widely used prediction models. In R, the randomForest implements Breiman's random forest algorithm (based on Breiman and Cutler's original Fortran code) for classification and regression. For this, we used the default settings. A Random Forest model utilizes ensemble trees with bootstrap aggregating (bagging). Bagging takes a randomized sample of the observations in the training set, with replacement. Additionally Random Forests utilize different subsets of the available variables for each tree. For a given input, each tree makes a classification and the average of these will be the output prediction from the Random Forest model. So although each individual tree overfits, the ensemble average is a good predictor.
+
+For cross-validation, we split the original training set into a training set (75%)
+and a test set (25%).
+
+For a simple decision tree, as shown below, we saw that the decision tree split on 
+four variables, including roll belt. However, this single decision tree did not perform well. In cross-validation, it only had an accuracy of 50%.
+```{r results='asis', warning=FALSE, echo=FALSE, message=FALSE,fig.cap="Decision Tree"}
+#Subsample
+set.seed(12)
+inTrain <- createDataPartition(y=training$classe,p=0.75, list=FALSE)
+train<-training[inTrain,]
+test<-training[-inTrain,]
+mod<-randomForest(classe ~ ., data=train)
+mod_simple<-train(classe ~ ., data=train, method="rpart")
+rattle::fancyRpartPlot(mod_simple$finalModel)
+```
+
+
+Results for the decision tree on the cross-validation test set:
+```{r}
+confusionMatrix(test$classe,predict(mod_simple,test))
+```
+
+## Final Model Results
+
+Implementing the Random Forest algorithm (with default 500 trees) had much better results.  The cross-validation accuracy was 99.47% (on the 25% of the original training set that was put aside for cross-validation) and it correctly predicted the outcome for all 20 of the observations in the original blind test set. The out-of-bagging (OOB) estimate of the error rate was 0.45%, which is very close to the out-of-sample error rate for our cross-validation set (100-accuracy; 0.53%). 
+
+```{r}
+print(mod)
+```
+
+Confusion matrix for cross-validation test set -
+```{r}
+confusionMatrix(test$classe,predict(mod,test))
+```
+
+As shown in the variable importance plot, one of the most important variables is roll_belt. 
+```{r results='asis', warning=FALSE, echo=FALSE, message=FALSE}
+varImpPlot(mod,main="WLE Random Forest Importance Plot")
+```
+
+```{r results='asis', warning=FALSE, echo=FALSE, message=FALSE}
+#To submit answers
+#output<-predict(mod,testing)
+#answers<-as.character(output)
+#pml_write_files(answers)
+```
+
+
+
+
+
