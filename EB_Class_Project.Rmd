@@ -7,7 +7,11 @@ output: html_document
 
 
 ## EXECUTIVE SUMMARY
+<<<<<<< HEAD
 In this report, we analyzed the Weight Lifting Exercise (WLE) Dataset from Groupware@LES (http://groupware.les.inf.puc-rio.br/har). This dataset includes measurements from four accelerometers (on the arm, forearm, belt, and dumbbell) for six participants as they performed one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl with five different variations: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). The objective for this research is to predict the quality (class) for a weight-lifting exercise based solely on accelerometer measurements. In this project, we utilized a Random Forest model on 48 variables. This model correctly predicted the 20 outcomes from the blind test set. The cross-validation accuracy was 99.53% (on the 25% of the original training set that was put aside for cross-validation). The out-of-bagging (OOB) estimate of the error rate was 0.43%, which is very close to the out-of-sample error rate for our cross-validation set (100% - accuracy = 0.47%).
+=======
+In this report, we analyzed the Weight Lifting Exercise (WLE) Dataset from Groupware@LES (http://groupware.les.inf.puc-rio.br/har). This dataset includes measurements from four accelerometers (on the arm, forearm, belt, and dumbbell) for six participants as they performed one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl with five different variations: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). The objective for this research is to predict the quality (class) for a weight-lifting exercise based solely on accelerometer measurements. In this project, we utilized a Random Forest model on 48 variables. This model correctly predicted the 20 outcomes from the test set and had a 99% out-of-sample accuracy (trained on 75% of original training set and tested on the remaining 25%).
+>>>>>>> origin/gh-pages
 
 WLE Dataset Paper: http://groupware.les.inf.puc-rio.br/har#wle_paper_section#ixzz3YRYzrXJv
 
@@ -93,7 +97,11 @@ For cross-validation, we split the original training set into a training set (75
 and a test set (25%).
 
 For a simple decision tree, as shown below, we saw that the decision tree split on 
+<<<<<<< HEAD
 four variables, including roll belt. However, this single decision tree did not perform well. In cross-validation, it only had an accuracy of 49%.
+=======
+four variables, including roll belt. However, this single decision tree did not perform well. In cross-validation, it only had an accuracy of 50%.
+>>>>>>> origin/gh-pages
 ```{r results='asis', warning=FALSE, echo=FALSE, message=FALSE,fig.cap="Decision Tree"}
 #Subsample
 set.seed(12)
@@ -113,7 +121,11 @@ confusionMatrix(test$classe,predict(mod_simple,test))
 
 ## Final Model Results
 
+<<<<<<< HEAD
 Implementing the Random Forest algorithm (with default 500 trees) had much better results.  The cross-validation accuracy was 99.53% (on the 25% of the original training set that was put aside for cross-validation) and it correctly predicted the outcome for all 20 of the observations in the original blind test set. The out-of-bagging (OOB) estimate of the error rate was 0.43%, which is very close to the out-of-sample error rate for our cross-validation set (100% - accuracy = 0.47%). 
+=======
+Implementing the Random Forest algorithm (with default 500 trees) had much better results.  The cross-validation accuracy was 99.47% (on the 25% of the original training set that was put aside for cross-validation) and it correctly predicted the outcome for all 20 of the observations in the original blind test set. The out-of-bagging (OOB) estimate of the error rate was 0.45%, which is very close to the out-of-sample error rate for our cross-validation set (100-accuracy; 0.53%). 
+>>>>>>> origin/gh-pages
 
 ```{r}
 print(mod)
